@@ -1,0 +1,67 @@
+data = df[['price_usd', 'srch_booking_window', 'srch_saturday_night_bool']]
+n_cluster = range(1, 20)
+kmeans = [KMeans(n_clusters=i).fit(data) for i in n_cluster]
+scores = [kmeans[i].score(data) for i in range(len(kmeans))]
+fig, ax = plt.subplots(figsize=(10,6))
+ax.plot(n_cluster, scores)
+plt.xlabel('Number of Clusters')
+plt.ylabel('Score')
+plt.title('Elbow Curve')
+plt.show()
+
+data = df[['price_usd', 'srch_booking_window', 'srch_saturday_night_bool']]
+X = data.values
+X_std = StandardScaler().fit_transform(X)
+#Calculating Eigenvecors and eigenvalues of Covariance matrix
+mean_vec = np.mean(X_std, axis=0)
+cov_mat = np.cov(X_std.T)
+eig_vals, eig_vecs = np.linalg.eig(cov_mat)
+# Create a list of (eigenvalue, eigenvector) tuples
+eig_pairs = [ (np.abs(eig_vals[i]),eig_vecs[:,i]) for i in range(len(eig_vals))]
+eig_pairs.sort(key = lambda x: x[0], reverse= True)
+# Calculation of Explained Variance from the eigenvalues
+tot = sum(eig_vals)
+var_exp = [(i/tot)*100 for i in sorted(eig_vals, reverse=True)] # Individual explained variance
+cum_var_exp = np.cumsum(var_exp) # Cumulative explained variance
+plt.figure(figsize=(10, 5))
+plt.bar(range(len(var_exp)), var_exp, alpha=0.3, align='center', label='individual explained variance', color = 'y')
+plt.step(range(len(cum_var_exp)), cum_var_exp, where='mid',label='cumulative explained variance')
+plt.ylabel('Explained variance ratio')
+plt.xlabel('Principal components')
+plt.legend(loc='best')
+plt.show()
+
+def getDistanceByPoint(data, model):
+   distance = pd.Series()
+   for i in range(0,len(data)):
+       Xa = np.array(data.loc[i])
+       Xb = model.cluster_centers_[model.labels_[i]-1]
+       distance.at[i]=np.linalg.norm(Xa-Xb)
+   return distance
+outliers_fraction = 0.1
+# get the distance between each point and its nearest centroid. The biggest distances are considered as anomaly
+distance = getDistanceByPoint(data, kmeans[9])
+number_of_outliers = int(outliers_fraction*len(distance))
+threshold = distance.nlargest(number_of_outliers).min()
+# anomaly1 contain the anomaly result of the above method Cluster (0:normal, 1:anomaly)
+df['anomaly1'] = (distance >= threshold).astype(int)
+fig, ax = plt.subplots(figsize=(10,6))
+colors = {0:'blue', 1:'red'}
+ax.scatter(df['principal_feature1'], df['principal_feature2'], c=df["anomaly1"].apply(lambda x: colors[x]))
+plt.xlabel('principal feature1')
+plt.ylabel('principal feature2')
+plt.show()
+
+
+df = df.sort_values('date_time')
+fig, ax = plt.subplots(figsize=(10,6))
+a = df.loc[df['anomaly1'] == 1, ['date_time', 'price_usd']] #anomaly
+ax.plot(pd.to_datetime(df['date_time']), df['price_usd'], color='k',label='Normal')
+ax.scatter(pd.to_datetime(a['date_time']),a['price_usd'], color='red', label='Anomaly')
+ax.xaxis_date()
+plt.xlabel('Date Time')
+plt.ylabel('price in USD')
+plt.legend()
+fig.autofmt_xdate()
+plt.show()
+

@@ -1,0 +1,16 @@
+outliers_fraction = float(.01)
+scaler = StandardScaler()
+np_scaled = scaler.fit_transform(catfish_sales.values.reshape(-1, 1))
+data = pd.DataFrame(np_scaled)
+# train isolation forest
+model =  IsolationForest(contamination=outliers_fraction)
+model.fit(data)
+
+catfish_sales['anomaly'] = model.predict(data)
+# visualization
+fig, ax = plt.subplots(figsize=(10,6))
+a = catfish_sales.loc[catfish_sales['anomaly'] == -1, ['Total']] #anomaly
+ax.plot(catfish_sales.index, catfish_sales['Total'], color='black', label = 'Normal')
+ax.scatter(a.index,a['Total'], color='red', label = 'Anomaly')
+plt.legend()
+plt.show()
